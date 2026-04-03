@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POS Pro - จัดการร้าน (Supabase)</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        :root {
+            --bg-color: #f8fafc; --surface: #ffffff; --text-main: #0f172a; --text-muted: #64748b;
+            --primary: #4f46e5; --primary-hover: #4338ca; --success: #10b981; --danger: #ef4444; 
+            --border: #e2e8f0; --radius-lg: 16px; --radius-md: 12px; --radius-sm: 8px;
+            --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.05); --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Anuphan', sans-serif; background-color: var(--bg-color); color: var(--text-main); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        button { font-family: 'Anuphan', sans-serif; cursor: pointer; transition: 0.2s ease; border: none; outline: none; }
+        input, select { font-family: 'Anuphan', sans-serif; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem; width: 100%; outline: none; transition: 0.2s; background: var(--surface);}
+        input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+        
+        .navbar { background: var(--surface); padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); z-index: 10; }
+        .nav-brand { font-size: 1.25rem; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 0.5rem; text-decoration: none;}
+        .nav-links { display: flex; gap: 1rem; }
+        .nav-btn { padding: 0.5rem 1rem; color: var(--text-muted); font-weight: 600; text-decoration: none; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 0.5rem; }
+        .nav-btn.active { background: #e0e7ff; color: var(--primary); }
+
+        .main-container { display: flex; flex: 1; max-width: 1400px; margin: 0 auto; width: 100%; padding: 1.5rem; gap: 1.5rem; overflow: hidden; }
+        
+        .col-left { flex: 1.2; display: flex; flex-direction: column; gap: 1.5rem; overflow-y: auto; padding-right: 0.5rem;}
+        .col-right { flex: 1; display: flex; flex-direction: column; gap: 1.5rem; overflow-y: auto; padding-right: 0.5rem;}
+
+        .panel { background: var(--surface); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-sm); border: 1px solid var(--border); }
+        .panel-header { font-size: 1.15rem; font-weight: 700; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; color: var(--text-main);}
+        
+        .form-group { margin-bottom: 1.25rem; }
+        .form-group label { display: block; font-weight: 600; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.4rem; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+
+        .btn-submit { background: var(--primary); color: white; padding: 1rem; border-radius: var(--radius-md); font-weight: 600; font-size: 1.05rem; width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
+        .btn-submit:hover { background: var(--primary-hover); }
+        
+        .color-picker-wrapper { display: flex; gap: 0.5rem; align-items: center; }
+        .color-picker-input { -webkit-appearance: none; border: none; width: 45px; height: 45px; border-radius: var(--radius-sm); cursor: pointer; padding: 0; }
+        .color-picker-input::-webkit-color-swatch-wrapper { padding: 0; }
+        .color-picker-input::-webkit-color-swatch { border: 1px solid var(--border); border-radius: var(--radius-sm); }
+        .hex-input { flex: 1; font-family: monospace; text-transform: uppercase;}
+
+        .preview-box { background: #f8fafc; border: 1px dashed var(--border); padding: 1.5rem; border-radius: var(--radius-md); display: flex; justify-content: center; align-items: center; margin-bottom: 1.5rem; }
+        .pos-btn-preview { width: 140px; height: 110px; border-radius: var(--radius-sm); display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; box-shadow: var(--shadow-sm); transition: all 0.2s;}
+        .pos-btn-preview i { font-size: 2rem; margin-bottom: 0.5rem; }
+        .pos-btn-preview .name { font-weight: 600; font-size: 0.95rem; text-align: center;}
+        .pos-btn-preview .price { font-size: 0.8rem; background: rgba(0,0,0,0.2); padding: 2px 8px; border-radius: 12px; margin-top: 5px; }
+
+        .auto-calc-box { background: #ecfdf5; border: 1px solid #a7f3d0; padding: 1rem; border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;}
+        .calc-text { color: #047857; font-weight: 600; font-size: 0.9rem;}
+        .calc-result { color: #059669; font-weight: 700; font-size: 1.2rem;}
+
+        .data-list { display: flex; flex-direction: column; gap: 0.75rem; }
+        .data-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--bg-color); border: 1px solid var(--border); border-radius: var(--radius-md); }
+        .data-item .info { display: flex; flex-direction: column; gap: 0.2rem;}
+        .data-item .title { font-weight: 600; font-size: 1rem; }
+        .data-item .sub { font-size: 0.85rem; color: var(--text-muted); }
+        .btn-delete { color: var(--danger); background: transparent; width: 32px; height: 32px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 1.25rem; border: 1px solid transparent;}
+        .btn-delete:hover { background: #fee2e2; border-color: #fca5a5;}
+
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: var(--surface); padding: 1rem 1.5rem; border-radius: var(--radius-md); border-left: 4px solid var(--primary); display: flex; align-items: center; gap: 0.75rem; font-weight: 600; box-shadow: var(--shadow-md); animation: slideIn 0.3s ease forwards; }
+        @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    </style>
+</head>
+<body>
+
+    <div id="toast-container"></div>
+
+    <nav class="navbar">
+        <a href="pos.html" class="nav-brand"><i class='bx bx-store-alt'></i> POS Pro (Supabase)</a>
+        <div class="nav-links">
+            <a href="pos.html" class="nav-btn"><i class='bx bx-cart-alt'></i> หน้าร้าน POS</a>
+            <a href="manage.html" class="nav-btn active"><i class='bx bx-data'></i> ฐานข้อมูลหลังบ้าน</a>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        
+        <div class="col-left">
+            <div class="panel">
+                <div class="panel-header"><i class='bx bx-package'></i> บันทึกซื้อของเข้าร้าน / รายจ่าย</div>
+                
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>หมวดหมู่รายจ่าย</label>
+                        <select id="expCategory">
+                            <option value="วัตถุดิบหลัก">วัตถุดิบหลัก (ชา, กาแฟ)</option>
+                            <option value="ส่วนผสม">ส่วนผสม (นม, ไซรัป, น้ำตาล)</option>
+                            <option value="บรรจุภัณฑ์">บรรจุภัณฑ์ (แก้ว, หลอด, ถุง)</option>
+                            <option value="จิปาถะ">จิปาถะ (น้ำแข็ง, แก๊ส, อื่นๆ)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>วันที่ซื้อ</label>
+                        <input type="date" id="expDate">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>ชื่อรายการ (ตามบิล/ใบเสร็จ)</label>
+                    <input type="text" id="expName" placeholder="เช่น แก้วแคปซูล 22oz">
+                </div>
+
+                <div class="grid-3">
+                    <div class="form-group"><label>ปริมาณ/จำนวน</label><input type="number" id="expQty" placeholder="เช่น 100" oninput="calculateUnitCost()"></div>
+                    <div class="form-group">
+                        <label>หน่วยนับ</label>
+                        <select id="expUnit" onchange="calculateUnitCost()">
+                            <option value="ใบ">ใบ / ชิ้น / หลอด</option>
+                            <option value="L">ลิตร (L)</option>
+                            <option value="ml">มิลลิลิตร (ml)</option>
+                            <option value="kg">กิโลกรัม (kg)</option>
+                            <option value="g">กรัม (g)</option>
+                            <option value="ถุง">ถุง / แพ็ค</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>ราคารวม (฿)</label><input type="number" id="expPrice" placeholder="เช่น 120" oninput="calculateUnitCost()"></div>
+                </div>
+
+                <div class="auto-calc-box">
+                    <span class="calc-text"><i class='bx bx-calculator'></i> ต้นทุนเฉลี่ย:</span>
+                    <span class="calc-result" id="calcUnitCost">0.00 ฿ / ใบ</span>
+                </div>
+
+                <button class="btn-submit" onclick="saveExpense()"><i class='bx bx-save'></i> บันทึกลงฐานข้อมูล</button>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header"><i class='bx bx-history'></i> ประวัติซื้อของล่าสุด</div>
+                <div class="data-list" id="expenseList"><div style="text-align: center; color: var(--text-muted);">กำลังโหลด...</div></div>
+            </div>
+        </div>
+
+        <div class="col-right">
+            <div class="panel">
+                <div class="panel-header"><i class='bx bx-coffee-togo'></i> สร้างเมนูหน้าร้าน (ปุ่ม POS)</div>
+                
+                <div class="form-group">
+                    <label>ชื่อเมนู</label>
+                    <input type="text" id="menuName" placeholder="เช่น ชาไทยเย็น" oninput="updateLivePreview()">
+                </div>
+                
+                <div class="grid-2">
+                    <div class="form-group"><label>ราคาขาย (฿)</label><input type="number" id="menuPrice" placeholder="40" oninput="updateLivePreview()"></div>
+                    <div class="form-group">
+                        <label>หมวดหมู่</label>
+                        <select id="menuCategory">
+                            <option value="tea">ชา</option>
+                            <option value="coffee">กาแฟ</option>
+                            <option value="milk">นม / ช็อกโกแลต</option>
+                            <option value="soda">โซดา</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>สีปุ่ม (เลือกหรือกรอกโค้ด)</label>
+                        <div class="color-picker-wrapper">
+                            <input type="color" id="colorPicker" class="color-picker-input" value="#f97316">
+                            <input type="text" id="hexInput" class="hex-input" value="#F97316">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>ไอคอน</label>
+                        <select id="menuIcon" onchange="updateLivePreview()">
+                            <option value="bx-coffee-togo">แก้วพกพา (เย็น)</option>
+                            <option value="bx-coffee">ถ้วยกาแฟ (ร้อน)</option>
+                            <option value="bx-drink">แก้วทรงสูง (ปั่น/โซดา)</option>
+                            <option value="bx-leaf">ใบไม้</option>
+                            <option value="bx-water">หยดน้ำ</option>
+                        </select>
+                    </div>
+                </div>
+
+                <label style="font-weight: 600; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem; display: block;">ตัวอย่างปุ่มหน้า POS</label>
+                <div class="preview-box">
+                    <div class="pos-btn-preview" id="livePreviewBtn" style="background-color: #f97316;">
+                        <i class='bx bx-coffee-togo' id="livePreviewIcon"></i>
+                        <span class="name" id="livePreviewName">ชาไทยเย็น</span>
+                        <span class="price"><span id="livePreviewPrice">40</span> ฿</span>
+                    </div>
+                </div>
+
+                <button class="btn-submit" onclick="saveMenu()"><i class='bx bx-layer-plus'></i> เพิ่มเมนู</button>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header"><i class='bx bx-grid-alt'></i> เมนูในระบบ POS</div>
+                <div class="data-list" id="menuList"><div style="text-align: center; color: var(--text-muted);">กำลังโหลด...</div></div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://pehcsvahuounbxgqxbrt.supabase.co'; 
+        const SUPABASE_KEY = 'sb_publishable_at6z6lMA5mhi7XpdGPjglQ_18mLDuPZ';
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        document.getElementById('expDate').valueAsDate = new Date();
+
+        function showToast(msg, type = "success") {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast`;
+            if(type === "error") toast.style.borderLeftColor = "var(--danger)";
+            const icon = type === "success" ? "bx-check-circle" : "bx-error-circle";
+            const color = type === "success" ? "var(--success)" : "var(--danger)";
+            toast.innerHTML = `<i class='bx ${icon}' style='color:${color}; font-size:1.5rem;'></i> <span>${msg}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // ==========================================
+        // Live Preview & Color Sync
+        // ==========================================
+        const colorPicker = document.getElementById('colorPicker');
+        const hexInput = document.getElementById('hexInput');
+        const menuName = document.getElementById('menuName');
+        const menuPrice = document.getElementById('menuPrice');
+        const menuIcon = document.getElementById('menuIcon');
+
+        colorPicker.addEventListener('input', (e) => { hexInput.value = e.target.value.toUpperCase(); updateLivePreview(); });
+        hexInput.addEventListener('input', (e) => {
+            let val = e.target.value;
+            if(!val.startsWith('#')) val = '#' + val;
+            if(val.length === 7) { colorPicker.value = val; updateLivePreview(); }
+        });
+
+        window.updateLivePreview = function() {
+            document.getElementById('livePreviewBtn').style.backgroundColor = colorPicker.value;
+            document.getElementById('livePreviewName').innerText = menuName.value || 'ชื่อเมนู';
+            document.getElementById('livePreviewPrice').innerText = menuPrice.value || '0';
+            document.getElementById('livePreviewIcon').className = 'bx ' + menuIcon.value;
+        }
+
+        window.calculateUnitCost = function() {
+            const qty = parseFloat(document.getElementById('expQty').value);
+            const price = parseFloat(document.getElementById('expPrice').value);
+            const unit = document.getElementById('expUnit').value;
+            const resultBox = document.getElementById('calcUnitCost');
+
+            if (qty > 0 && price >= 0) {
+                const cost = price / qty;
+                resultBox.innerText = `${cost.toFixed(2)} ฿ / ${unit}`;
+                resultBox.style.color = "#059669";
+            } else {
+                resultBox.innerText = `0.00 ฿ / ${unit}`;
+                resultBox.style.color = "var(--text-muted)";
+            }
+        }
+
+        // ==========================================
+        // ระบบจัดการข้อมูล (Supabase CRUD)
+        // ==========================================
+        
+        async function loadProducts() {
+            const { data } = await supabaseClient.from('pos_products').select('*').order('created_at', {ascending: false});
+            const list = document.getElementById('menuList');
+            list.innerHTML = '';
+            if(!data || data.length === 0) { list.innerHTML = '<div style="text-align: center; color: var(--text-muted);">ยังไม่มีเมนู</div>'; return; }
+
+            data.forEach(item => {
+                list.innerHTML += `
+                    <div class="data-item">
+                        <div style="display:flex; align-items:center; gap:1rem;">
+                            <div style="width:36px; height:36px; background:${item.color}; color:white; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:1.2rem;">
+                                <i class='bx ${item.icon}'></i>
+                            </div>
+                            <div class="info">
+                                <span class="title">${item.name}</span>
+                                <span class="sub">ราคา: ${item.price} ฿</span>
+                            </div>
+                        </div>
+                        <button class="btn-delete" onclick="deleteDocument('pos_products', '${item.id}')"><i class='bx bx-trash'></i></button>
+                    </div>`;
+            });
+        }
+
+        async function loadExpenses() {
+            const { data } = await supabaseClient.from('pos_expenses').select('*').order('created_at', {ascending: false});
+            const list = document.getElementById('expenseList');
+            list.innerHTML = '';
+            if(!data || data.length === 0) { list.innerHTML = '<div style="text-align: center; color: var(--text-muted);">ยังไม่มีประวัติรายจ่าย</div>'; return; }
+
+            data.forEach(item => {
+                const dateStr = new Date(item.date).toLocaleDateString('th-TH', {day:'numeric', month:'short'});
+                list.innerHTML += `
+                    <div class="data-item">
+                        <div class="info">
+                            <span class="title">${item.name} <span style="font-size:0.8rem; font-weight:normal; background:#e2e8f0; padding:2px 6px; border-radius:4px; margin-left:5px;">${item.category}</span></span>
+                            <span class="sub"><i class='bx bx-calendar'></i> ${dateStr} • ได้มา ${item.qty} ${item.unit} (ตก ${item.unit_cost.toFixed(2)} ฿/${item.unit})</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:1rem;">
+                            <span style="font-weight:700; color:var(--danger);">- ${item.price} ฿</span>
+                            <button class="btn-delete" onclick="deleteDocument('pos_expenses', '${item.id}')"><i class='bx bx-trash'></i></button>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        window.saveMenu = async function() {
+            const name = menuName.value.trim();
+            const price = parseFloat(menuPrice.value);
+            if(!name || isNaN(price)) return showToast("กรุณากรอกชื่อและราคาให้ครบ", "error");
+
+            try {
+                await supabaseClient.from('pos_products').insert([{
+                    name: name, price: price, category: document.getElementById('menuCategory').value,
+                    color: hexInput.value, icon: menuIcon.value
+                }]);
+                showToast("เพิ่มเมนูลง POS เรียบร้อย!");
+                menuName.value = ''; menuPrice.value = ''; updateLivePreview();
+                loadProducts();
+            } catch (e) { showToast(e.message, "error"); }
+        }
+
+        window.saveExpense = async function() {
+            const name = document.getElementById('expName').value.trim();
+            const qty = parseFloat(document.getElementById('expQty').value);
+            const price = parseFloat(document.getElementById('expPrice').value);
+            if(!name || isNaN(qty) || isNaN(price)) return showToast("กรุณากรอกข้อมูลให้ครบ", "error");
+
+            try {
+                await supabaseClient.from('pos_expenses').insert([{
+                    date: document.getElementById('expDate').value,
+                    category: document.getElementById('expCategory').value,
+                    name: name, qty: qty, unit: document.getElementById('expUnit').value,
+                    price: price, unit_cost: (price/qty)
+                }]);
+                showToast("บันทึกรายจ่ายสำเร็จ!");
+                document.getElementById('expName').value = ''; document.getElementById('expQty').value = ''; document.getElementById('expPrice').value = '';
+                calculateUnitCost(); loadExpenses();
+            } catch (e) { showToast(e.message, "error"); }
+        }
+
+        window.deleteDocument = async function(table, id) {
+            if(confirm("ต้องการลบรายการนี้ใช่หรือไม่?")) {
+                try {
+                    await supabaseClient.from(table).delete().eq('id', id);
+                    showToast("ลบสำเร็จ");
+                    if(table === 'pos_products') loadProducts(); else loadExpenses();
+                } catch (e) { showToast(e.message, "error"); }
+            }
+        }
+
+        // โหลดข้อมูลครั้งแรก
+        loadProducts();
+        loadExpenses();
+    </script>
+</body>
+</html>

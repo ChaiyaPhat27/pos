@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POS Pro - หน้าร้าน (Supabase Only)</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&family=Prompt:wght@600;700&display=swap" rel="stylesheet">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        :root {
+            --bg-color: #f1f5f9; --surface: #ffffff; --text-main: #1e293b; --text-muted: #64748b;
+            --primary: #4f46e5; --success: #10b981; --danger: #ef4444; 
+            --border: #e2e8f0; --radius-lg: 20px; --radius-md: 12px;
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Anuphan', sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        button { cursor: pointer; transition: 0.2s ease; border: none; }
+        
+        /* Navbar */
+        .navbar { background: var(--surface); padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); z-index: 10; }
+        .nav-brand { font-size: 1.25rem; font-weight: 800; color: var(--primary); display: flex; align-items: center; gap: 0.5rem; text-decoration: none; font-family: 'Prompt';}
+        .nav-links { display: flex; gap: 0.5rem; }
+        .nav-btn { padding: 0.6rem 1rem; color: var(--text-muted); font-weight: 700; text-decoration: none; border-radius: 10px; display: flex; align-items: center; gap: 0.5rem; }
+        .nav-btn.active { background: #e0e7ff; color: var(--primary); }
+
+        /* Main Layout */
+        .main-container { display: flex; flex: 1; width: 100%; padding: 1.5rem; gap: 1.5rem; overflow: hidden; }
+        
+        /* Left: Menu Area */
+        .col-menu { flex: 2; display: flex; flex-direction: column; gap: 1rem; overflow-y: auto; padding-right: 5px;}
+        .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; }
+        
+        .menu-btn { 
+            height: 130px; border-radius: var(--radius-md); display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; color: white; box-shadow: var(--shadow-md); 
+            transition: all 0.2s; position: relative; overflow: hidden;
+        }
+        .menu-btn:hover { transform: translateY(-3px); filter: brightness(1.1); }
+        .menu-btn:active { transform: scale(0.95); }
+        .menu-btn i { font-size: 2.8rem; margin-bottom: 0.5rem; opacity: 0.9; }
+        .menu-btn .name { font-weight: 700; font-size: 0.95rem; text-align: center; width: 100%; padding: 0 5px;}
+        .menu-btn .price { font-size: 0.85rem; background: rgba(0,0,0,0.25); padding: 2px 10px; border-radius: 20px; margin-top: 8px; font-weight: 800; font-family: 'Prompt';}
+
+        /* Right: Cart Area */
+        .col-cart { flex: 1; min-width: 380px; background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); border: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden;}
+        .cart-header { padding: 1.25rem; border-bottom: 1px solid var(--border); font-weight: 800; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center; font-family: 'Prompt';}
+        
+        .cart-items { flex: 1; overflow-y: auto; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+        .cart-item { display: flex; justify-content: space-between; align-items: center; padding-bottom: 1rem; border-bottom: 1px solid #f1f5f9; }
+        .item-info { flex: 1; }
+        .item-name { font-weight: 700; font-size: 1rem; margin-bottom: 2px;}
+        .item-price { font-size: 0.85rem; color: var(--text-muted); font-weight: 600;}
+        
+        .qty-controls { display: flex; align-items: center; gap: 0.75rem; background: #f8fafc; border-radius: 10px; padding: 4px 8px; border: 1px solid var(--border);}
+        .qty-btn { width: 26px; height: 26px; background: white; border-radius: 6px; border: 1px solid var(--border); font-weight: 900; color: var(--text-main); display: flex; align-items: center; justify-content: center; font-size: 1.2rem;}
+        .qty-number { width: 25px; text-align: center; font-weight: 800; font-size: 1rem; color: var(--primary);}
+        .item-total { font-weight: 800; width: 80px; text-align: right; color: var(--text-main); font-family: 'Prompt';}
+
+        .cart-footer { padding: 1.5rem; background: #f8fafc; border-top: 1px solid var(--border); }
+        .summary-row { display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 1rem; color: var(--text-muted); font-weight: 700;}
+        .summary-row.total { font-size: 1.8rem; font-weight: 800; color: var(--text-main); margin-bottom: 1.5rem; margin-top: 0.5rem; border-top: 2px dashed var(--border); padding-top: 1rem; font-family: 'Prompt';}
+        
+        .btn-checkout { background: var(--success); color: white; padding: 1.25rem; border-radius: var(--radius-md); font-weight: 800; font-size: 1.3rem; width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.75rem; box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.3); font-family: 'Prompt';}
+        .btn-checkout:hover { filter: brightness(1.1); transform: translateY(-2px); }
+        .btn-checkout:active { transform: scale(0.98); }
+
+        /* Toast Message */
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
+        .toast { background: white; border-left: 5px solid var(--success); padding: 1rem 1.5rem; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); margin-bottom: 10px; font-weight: 700; display: flex; align-items: center; gap: 10px; animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div id="toast-container"></div>
+
+    <nav class="navbar">
+        <a href="pos.html" class="nav-brand"><i class='bx bx-drink'></i> KANJANA POS</a>
+        <div class="nav-links">
+            <a href="dashboard.html" class="nav-btn"><i class='bx bx-bar-chart-square'></i> สรุปยอดขาย</a>
+            <a href="pos.html" class="nav-btn active"><i class='bx bx-cart-alt'></i> หน้าร้าน POS</a>
+            <a href="manage.html" class="nav-btn"><i class='bx bx-cog'></i> ตั้งค่าหลังบ้าน</a>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        
+        <div class="col-menu">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2 style="font-size: 1.4rem; font-weight: 800; font-family: 'Prompt';"><i class='bx bx-grid-alt'></i> เมนูเครื่องดื่ม</h2>
+                <div id="syncStatus" style="font-size: 0.8rem; color: var(--success); font-weight: 700;"><i class='bx bx-cloud-check'></i> เชื่อมต่อ Supabase แล้ว</div>
+            </div>
+            
+            <div class="menu-grid" id="menuGrid">
+                <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <i class='bx bx-loader-alt bx-spin' style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                    <p style="font-weight: 700;">กำลังซิงค์ข้อมูลเมนูเครื่องดื่ม...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-cart">
+            <div class="cart-header">
+                <span><i class='bx bx-receipt'></i> บิลรายการ</span>
+                <button onclick="clearCart()" style="background: #fee2e2; color: var(--danger); padding: 5px 12px; border-radius: 8px; font-weight: 800; font-size: 0.85rem;">ล้างบิล</button>
+            </div>
+            
+            <div class="cart-items" id="cartItems">
+                <div style="text-align: center; margin-top: 5rem; color: var(--text-muted); opacity: 0.5;">
+                    <i class='bx bx-shopping-bag' style="font-size: 5rem; margin-bottom: 1rem;"></i>
+                    <p style="font-weight: 700;">ยังไม่มีรายการเครื่องดื่ม</p>
+                </div>
+            </div>
+
+            <div class="cart-footer">
+                <div class="summary-row">
+                    <span>จำนวนทั้งหมด</span>
+                    <span id="totalQty">0 แก้ว</span>
+                </div>
+                <div class="summary-row total">
+                    <span>รวมทั้งสิ้น</span>
+                    <span style="color: var(--primary);"><span id="totalPrice">0.00</span> ฿</span>
+                </div>
+                <button class="btn-checkout" onclick="checkout()"><i class='bx bx-printer'></i> ชำระเงิน & พิมพ์บิล</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // 🛑 ตั้งค่า SUPABASE ตรงนี้ (เน้นดึงจาก DB ใหม่)
+        const SUPABASE_URL = 'https://pehcsvahuounbxgqxbrt.supabase.co'; 
+        const SUPABASE_KEY = 'sb_publishable_at6z6lMA5mhi7XpdGPjglQ_18mLDuPZ';
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let cart = [];
+
+        function showToast(msg) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerHTML = `<i class='bx bxs-check-circle' style='font-size:1.5rem; color:var(--success);'></i> <span>${msg}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 500); }, 2500);
+        }
+
+        // 1. ดึงข้อมูลเมนูจากตาราง 'pos_products' ใน Supabase
+        async function fetchMenu() {
+            const { data, error } = await supabaseClient
+                .from('pos_products')
+                .select('*')
+                .order('name', { ascending: true });
+
+            if (error) {
+                console.error("Error fetching menu:", error);
+                document.getElementById('menuGrid').innerHTML = '<p style="text-align:center; color:red;">โหลดเมนูไม่สำเร็จ กรุณาเช็คการตั้งค่าตาราง</p>';
+                return;
+            }
+
+            const grid = document.getElementById('menuGrid');
+            grid.innerHTML = '';
+
+            if (data.length === 0) {
+                grid.innerHTML = '<p style="grid-column:1/-1; text-align:center; padding:3rem; font-weight:700; color:var(--text-muted);">ไม่พบเมนูในระบบ กรุณาเพิ่มเมนูที่หน้าหลังบ้านก่อนครับ</p>';
+                return;
+            }
+
+            data.forEach(item => {
+                const btn = document.createElement('button');
+                btn.className = 'menu-btn';
+                btn.style.backgroundColor = item.color || '#4f46e5';
+                btn.innerHTML = `
+                    <i class='bx ${item.icon || 'bx-drink'}'></i>
+                    <span class="name">${item.name}</span>
+                    <span class="price">${Number(item.price).toFixed(2)} ฿</span>
+                `;
+                btn.onclick = () => addToCart(item);
+                grid.appendChild(btn);
+            });
+        }
+
+        // 2. ฟังก์ชันจัดการตะกร้า
+        function addToCart(product) {
+            const existing = cart.find(i => i.id === product.id);
+            if (existing) {
+                existing.qty += 1;
+            } else {
+                cart.push({ ...product, qty: 1 });
+            }
+            updateUI();
+        }
+
+        function changeQty(index, amt) {
+            cart[index].qty += amt;
+            if (cart[index].qty <= 0) cart.splice(index, 1);
+            updateUI();
+        }
+
+        function clearCart() {
+            if (cart.length === 0) return;
+            if (confirm("ต้องการล้างรายการทั้งหมดใช่หรือไม่?")) {
+                cart = [];
+                updateUI();
+            }
+        }
+
+        function updateUI() {
+            const list = document.getElementById('cartItems');
+            const totalQtyEl = document.getElementById('totalQty');
+            const totalPriceEl = document.getElementById('totalPrice');
+            
+            list.innerHTML = '';
+            let totalQty = 0;
+            let totalPrice = 0;
+
+            if (cart.length === 0) {
+                list.innerHTML = `<div style="text-align: center; margin-top: 5rem; color: var(--text-muted); opacity: 0.5;"><i class='bx bx-shopping-bag' style="font-size: 5rem; margin-bottom: 1rem;"></i><p style="font-weight: 700;">ยังไม่มีรายการเครื่องดื่ม</p></div>`;
+                totalQtyEl.innerText = "0 แก้ว";
+                totalPriceEl.innerText = "0.00";
+                return;
+            }
+
+            cart.forEach((item, index) => {
+                const lineTotal = item.price * item.qty;
+                totalQty += item.qty;
+                totalPrice += lineTotal;
+
+                list.innerHTML += `
+                    <div class="cart-item">
+                        <div class="item-info">
+                            <div class="item-name">${item.name}</div>
+                            <div class="item-price">@ ${Number(item.price).toFixed(2)}</div>
+                        </div>
+                        <div class="qty-controls">
+                            <button class="qty-btn" onclick="changeQty(${index}, -1)">-</button>
+                            <div class="qty-number">${item.qty}</div>
+                            <button class="qty-btn" onclick="changeQty(${index}, 1)">+</button>
+                        </div>
+                        <div class="item-total">${lineTotal.toFixed(2)}</div>
+                    </div>
+                `;
+            });
+
+            totalQtyEl.innerText = totalQty + " แก้ว";
+            totalPriceEl.innerText = totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        // 3. กดชำระเงิน (บันทึกลงตาราง 'pos_orders' ใน Supabase)
+        async function checkout() {
+            if (cart.length === 0) return alert("กรุณาเลือกรายการเครื่องดื่มก่อนชำระเงิน");
+
+            const totalAmount = cart.reduce((sum, i) => sum + (i.price * i.qty), 0);
+            const totalItems = cart.reduce((sum, i) => sum + i.qty, 0);
+
+            const { error } = await supabaseClient
+                .from('pos_orders')
+                .insert([{
+                    items: cart,
+                    total_amount: totalAmount,
+                    total_items: totalItems,
+                    status: 'completed'
+                }]);
+
+            if (error) {
+                console.error("Checkout error:", error);
+                alert("เกิดข้อผิดพลาดในการบันทึกยอดขาย: " + error.message);
+            } else {
+                showToast(`ชำระเงินสำเร็จ ${totalAmount.toFixed(2)} ฿`);
+                cart = [];
+                updateUI();
+            }
+        }
+
+        // เริ่มโหลดข้อมูล
+        fetchMenu();
+    </script>
+</body>
+</html>

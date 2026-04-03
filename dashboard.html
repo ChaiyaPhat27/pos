@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POS Pro - สรุปยอดขาย (Dashboard)</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&family=Prompt:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root {
+            --bg-color: #f8fafc; --surface: #ffffff; --text-main: #0f172a; --text-muted: #64748b;
+            --primary: #4f46e5; --primary-hover: #4338ca; --primary-light: #e0e7ff;
+            --success: #10b981; --success-light: #d1fae5;
+            --warning: #f59e0b; --warning-light: #fef3c7;
+            --danger: #ef4444; --danger-light: #fee2e2;
+            --border: #e2e8f0; --radius-lg: 24px; --radius-md: 16px; --radius-sm: 12px;
+            --shadow-md: 0 10px 25px -5px rgba(0,0,0,0.05);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Anuphan', sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); min-height: 100vh; overflow-y: auto; padding-bottom: 50px;}
+        
+        /* Navbar */
+        .navbar { background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 50; }
+        .nav-brand { font-size: 1.25rem; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 0.5rem; text-decoration: none; font-family: 'Prompt';}
+        .nav-links { display: flex; gap: 1rem; }
+        .nav-btn { padding: 0.6rem 1.2rem; color: var(--text-muted); font-weight: 600; text-decoration: none; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 0.5rem; transition: 0.2s;}
+        .nav-btn:hover { background: var(--bg-color); color: var(--text-main);}
+        .nav-btn.active { background: var(--primary-light); color: var(--primary); }
+
+        .container { max-width: 1400px; margin: 2rem auto; padding: 0 2rem; animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+
+        .page-header { margin-bottom: 2rem; }
+        .page-title { font-family: 'Prompt'; font-size: 1.8rem; font-weight: 800; color: var(--text-main);}
+        .page-sub { color: var(--text-muted); font-weight: 500;}
+
+        /* 🟢 Stats Grid (การ์ดสรุปยอด 4 ใบ) */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .stat-card { background: var(--surface); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-md); border: 1px solid var(--border); display: flex; align-items: center; gap: 1.5rem; transition: transform 0.2s;}
+        .stat-card:hover { transform: translateY(-5px); }
+        .stat-icon { width: 60px; height: 60px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 2rem; flex-shrink: 0;}
+        .icon-blue { background: var(--primary-light); color: var(--primary); }
+        .icon-green { background: var(--success-light); color: var(--success); }
+        .icon-red { background: var(--danger-light); color: var(--danger); }
+        .icon-yellow { background: var(--warning-light); color: var(--warning); }
+        
+        .stat-info { flex: 1; }
+        .stat-title { font-size: 0.95rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.25rem;}
+        .stat-value { font-family: 'Prompt'; font-size: 1.8rem; font-weight: 800; color: var(--text-main); line-height: 1;}
+
+        /* 🟢 Charts & Tables Layout */
+        .dashboard-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; }
+        @media (max-width: 1024px) { .dashboard-grid { grid-template-columns: 1fr; } }
+
+        .panel { background: var(--surface); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-md); border: 1px solid var(--border); }
+        .panel-header { font-family: 'Prompt'; font-size: 1.2rem; font-weight: 700; color: var(--text-main); margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;}
+
+        /* 🟢 Order List (ประวัติบิล) */
+        .order-list { display: flex; flex-direction: column; gap: 1rem; max-height: 400px; overflow-y: auto; padding-right: 0.5rem;}
+        .order-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--bg-color); border: 1px solid var(--border); border-radius: var(--radius-md); }
+        .order-info .order-id { font-weight: 700; color: var(--primary); font-family: monospace; font-size: 0.9rem; margin-bottom: 0.2rem;}
+        .order-info .order-time { font-size: 0.8rem; color: var(--text-muted); }
+        .order-amount { font-family: 'Prompt'; font-weight: 800; font-size: 1.2rem; color: var(--success); text-align: right;}
+        .order-qty { font-size: 0.8rem; color: var(--text-muted); font-weight: 600;}
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <a href="dashboard.html" class="nav-brand"><i class='bx bx-store-alt'></i> POS Pro</a>
+        <div class="nav-links">
+            <a href="dashboard.html" class="nav-btn active"><i class='bx bx-bar-chart-alt-2'></i> สรุปยอดขาย</a>
+            <a href="pos.html" class="nav-btn"><i class='bx bx-cart-alt'></i> หน้าร้าน POS</a>
+            <a href="manage.html" class="nav-btn"><i class='bx bx-data'></i> จัดการหลังบ้าน</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="page-header">
+            <h1 class="page-title">ภาพรวมธุรกิจ (Business Overview)</h1>
+            <p class="page-sub" id="currentDate">ข้อมูลอัปเดตแบบ Real-time ณ วันนี้</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon icon-blue"><i class='bx bx-line-chart'></i></div>
+                <div class="stat-info">
+                    <div class="stat-title">ยอดขายรวม (Revenue)</div>
+                    <div class="stat-value" id="valRevenue">0 ฿</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon icon-red"><i class='bx bx-trending-down'></i></div>
+                <div class="stat-info">
+                    <div class="stat-title">รายจ่ายรวม (Expenses)</div>
+                    <div class="stat-value" id="valExpense">0 ฿</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon icon-green"><i class='bx bx-wallet'></i></div>
+                <div class="stat-info">
+                    <div class="stat-title">กำไรสุทธิ (Net Profit)</div>
+                    <div class="stat-value" id="valProfit">0 ฿</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon icon-yellow"><i class='bx bx-receipt'></i></div>
+                <div class="stat-info">
+                    <div class="stat-title">จำนวนบิลทั้งหมด (Orders)</div>
+                    <div class="stat-value" id="valOrders">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="panel">
+                <div class="panel-header"><i class='bx bx-pie-chart-alt-2' style="color:var(--primary);"></i> สัดส่วนสินค้าขายดี (Top Items)</div>
+                <div style="position: relative; height: 400px; width: 100%; display: flex; justify-content: center; align-items: center;">
+                    <canvas id="topItemsChart"></canvas>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header"><i class='bx bx-history' style="color:var(--success);"></i> ประวัติการขายล่าสุด</div>
+                <div class="order-list" id="orderList">
+                    <div style="text-align: center; color: var(--text-muted); padding: 2rem;">กำลังดึงข้อมูลบิล...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ตั้งค่าวันที่ปัจจุบัน
+        document.getElementById('currentDate').innerText = "ข้อมูลทั้งหมดจนถึง " + new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+
+        // เชื่อม Supabase
+        const SUPABASE_URL = 'https://pehcsvahuounbxgqxbrt.supabase.co'; 
+        const SUPABASE_KEY = 'sb_publishable_at6z6lMA5mhi7XpdGPjglQ_18mLDuPZ';
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let chartInstance = null;
+
+        async function fetchDashboardData() {
+            try {
+                // 1. ดึงออเดอร์ทั้งหมด
+                const { data: orders } = await supabaseClient.from('pos_orders').select('*').order('created_at', { ascending: false });
+                
+                // 2. ดึงรายจ่ายทั้งหมด
+                const { data: expenses } = await supabaseClient.from('pos_expenses').select('price');
+
+                if(!orders) return;
+
+                // --- คำนวณสรุปยอด (Stats) ---
+                let totalRevenue = 0;
+                let totalExpense = 0;
+                let itemSalesCount = {}; // นับว่าน้ำแต่ละแก้วขายได้กี่แก้ว
+
+                // ยอดขาย & นับจำนวนสินค้า
+                orders.forEach(order => {
+                    totalRevenue += Number(order.total_amount);
+                    
+                    // นับยอดขายแต่ละเมนู
+                    if(order.items && Array.isArray(order.items)) {
+                        order.items.forEach(item => {
+                            if(!itemSalesCount[item.name]) itemSalesCount[item.name] = 0;
+                            itemSalesCount[item.name] += item.qty;
+                        });
+                    }
+                });
+
+                // รายจ่าย
+                if(expenses) {
+                    expenses.forEach(exp => {
+                        totalExpense += Number(exp.price);
+                    });
+                }
+
+                let netProfit = totalRevenue - totalExpense;
+
+                // อัปเดต UI ตัวเลข
+                document.getElementById('valRevenue').innerText = totalRevenue.toLocaleString() + ' ฿';
+                document.getElementById('valExpense').innerText = totalExpense.toLocaleString() + ' ฿';
+                document.getElementById('valOrders').innerText = orders.length.toLocaleString();
+                
+                const profitEl = document.getElementById('valProfit');
+                profitEl.innerText = netProfit.toLocaleString() + ' ฿';
+                if(netProfit < 0) {
+                    profitEl.style.color = "var(--danger)"; // ขาดทุนตัวแดง
+                }
+
+                // --- อัปเดตตารางบิลล่าสุด ---
+                const list = document.getElementById('orderList');
+                list.innerHTML = '';
+                if(orders.length === 0) {
+                    list.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 2rem;">ยังไม่มีรายการขาย</div>';
+                } else {
+                    // เอาแค่ 20 บิลล่าสุดมาโชว์จะได้ไม่กระตุก
+                    orders.slice(0, 20).forEach(order => {
+                        const dateStr = new Date(order.created_at).toLocaleString('th-TH', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'});
+                        const shortId = order.id.substring(0, 8).toUpperCase(); // ตัด ID ให้สั้นลง
+                        
+                        list.innerHTML += `
+                            <div class="order-item">
+                                <div class="order-info">
+                                    <div class="order-id">#ORD-${shortId}</div>
+                                    <div class="order-time"><i class='bx bx-time-five'></i> ${dateStr}</div>
+                                </div>
+                                <div>
+                                    <div class="order-amount">+${Number(order.total_amount).toFixed(2)} ฿</div>
+                                    <div class="order-qty">${order.total_items} รายการ</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                // --- อัปเดตกราฟโดนัท (Top Items) ---
+                updateChart(itemSalesCount);
+
+            } catch (err) {
+                console.error("Error fetching dashboard data:", err);
+            }
+        }
+
+        // ฟังก์ชันวาดกราฟด้วย Chart.js
+        function updateChart(itemData) {
+            const ctx = document.getElementById('topItemsChart').getContext('2d');
+            
+            // เรียงลำดับจากขายดีสุดไปน้อยสุด และเอาแค่ Top 5
+            const sortedItems = Object.entries(itemData).sort((a, b) => b[1] - a[1]).slice(0, 6);
+            
+            const labels = sortedItems.map(item => item[0]);
+            const data = sortedItems.map(item => item[1]);
+
+            // ลบกราฟเก่าทิ้งถ้ามี
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            if(labels.length === 0) {
+                // ถ้ายังไม่มีข้อมูล
+                labels.push("ยังไม่มีข้อมูล");
+                data.push(1);
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: [
+                            '#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'
+                        ],
+                        borderWidth: 0,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                font: { family: 'Anuphan', size: 14 },
+                                color: '#0f172a',
+                                padding: 20
+                            }
+                        }
+                    },
+                    cutout: '65%' // ทำวงแหวนให้บางลง ดูมินิมอลขึ้น
+                }
+            });
+        }
+
+        // โหลดข้อมูลตอนเปิดหน้าเว็บ
+        fetchDashboardData();
+    </script>
+</body>
+</html>
